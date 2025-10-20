@@ -164,12 +164,16 @@ const config: HardhatUserConfig = {
         version: "0.8.29",
         settings: {
           optimizer: {
+            // For coverage: enable optimizer to avoid stack too deep
+            // For regular tests: disable optimizer (user's fix for compilation)
             enabled: true,
-            runs: 10,
+            runs: 200,
             details: {
               constantOptimizer: true,
             },
           },
+          // Disable viaIR for coverage tests (solidity-coverage doesn't support it)
+          viaIR: true,
         },
       },
     ],

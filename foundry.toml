@@ -4,3 +4,13 @@ out = 'out'
 libs = ['node_modules', 'lib']
 test = 'test'
 cache_path  = 'cache_forge'
+
+# Fuzz testing configuration
+[fuzz]
+runs = 1000              # Number of fuzz runs per test (≥1000 as required)
+max_test_rejects = 65536 # Maximum number of times to reject a fuzz input
+
+[invariant]
+runs = 256               # Number of runs for invariant tests
+depth = 15               # Number of calls in a single run
+fail_on_revert = false   # Continue even if a call reverts
