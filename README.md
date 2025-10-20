@@ -1,5 +1,12 @@
 # GMX Synthetics
 
+[![Coverage](https://img.shields.io/badge/coverage-4.9%25-red)](./coverage_merged/index.html)
+[![Lines](https://img.shields.io/badge/lines-667%2F13494-red)](./coverage_merged/index.html)
+[![Branches](https://img.shields.io/badge/branches-no%20data-lightgrey)](./coverage_merged/index.html)
+[![CI](https://github.com/gmx-io/gmx-synthetics/actions/workflows/qa.yml/badge.svg?branch=qa/severus.cui)](https://github.com/gmx-io/gmx-synthetics/actions/workflows/qa.yml)
+
+> **QA Branch**: `qa/severus.cui` - Comprehensive test coverage for swap & liquidity logic
+
 Contracts for GMX Synthetics.
 
 # General Overview
