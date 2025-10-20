@@ -47,33 +47,19 @@ jobs:
         env:
             YARN_ENABLE_HARDENED_MODE: false
         run: |
-          echo "Starting yarn install..."
-          # Force node_modules mode and clean install
+          # Force node_modules mode
           rm -rf node_modules .yarn/cache .yarn/unplugged
+          yarn config set nodeLinker node-modules
           yarn install --immutable
-          echo "Yarn install completed"
-          echo "Checking node_modules directory..."
-          ls -la node_modules/ | head -10
-          echo "Checking OpenZeppelin contracts..."
-          ls -la node_modules/@openzeppelin/contracts/ || echo "OpenZeppelin contracts not found"
-          echo "Checking specific OpenZeppelin security contracts..."
-          ls -la node_modules/@openzeppelin/contracts/security/ || echo "OpenZeppelin security not found"
-          echo "Checking current working directory..."
-          pwd
-          echo "Checking file permissions..."
-          ls -la
+          # Fallback to npm if node_modules not created
+          if [ ! -d "node_modules" ]; then
+            npm install
+          fi
 
       - name: Run Foundry build
         run: |
           forge --version
-          echo "Checking Foundry libs configuration..."
-          forge config --json | jq '.libs' || echo "No libs config found"
-          echo "Checking if node_modules exists..."
-          ls -la node_modules/ || echo "node_modules not found"
-          echo "Checking OpenZeppelin contracts specifically..."
-          find node_modules/@openzeppelin/contracts -name "ReentrancyGuard.sol" || echo "ReentrancyGuard.sol not found"
-          echo "Trying to build with verbose output..."
-          forge build --verbose
+          forge build
         env:
           FOUNDRY_DISABLE_NIGHTLY_WARNING: true
         id: build
