@@ -48,6 +48,8 @@ jobs:
             YARN_ENABLE_HARDENED_MODE: false
         run: |
           echo "Starting yarn install..."
+          # Force node_modules mode and clean install
+          rm -rf node_modules .yarn/cache .yarn/unplugged
           yarn install --immutable
           echo "Yarn install completed"
           echo "Checking node_modules directory..."
