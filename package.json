@@ -18,7 +18,8 @@
    },
     "fork:avalancheFuji": "npx hardhat node --fork https://api.avax-test.network/ext/bc/C/rpc --no-deploy --fork-block-number 16658163",
     "fork:avalanche": "npx hardhat node --fork https://api.avax.network/ext/bc/C/rpc --no-deploy",
-    "fork:arbitrum": "npx hardhat node --fork https://arb1.arbitrum.io/rpc --no-deploy"
+    "fork:arbitrum": "npx hardhat node --fork https://arb1.arbitrum.io/rpc --no-deploy",
+    "verify:tenderly": "npx hardhat --config hardhat.config.tenderly.ts run scripts/verifyTenderly.ts --network"
   },
   "author": "",
   "license": "ISC",
@@ -29,6 +30,7 @@
     "@nomicfoundation/hardhat-toolbox": "^6.1.0",
     "@nomicfoundation/hardhat-verify": "^2.1.1",
     "@nomiclabs/hardhat-ethers": "npm:hardhat-deploy-ethers@^0.3.0-beta.13",
+    "@tenderly/hardhat-tenderly": "^1.8.0",
     "@typechain/ethers-v5": "^10.1.1",
     "@typechain/hardhat": "^6.1.4",
     "@types/chai": "^4.3.4",
