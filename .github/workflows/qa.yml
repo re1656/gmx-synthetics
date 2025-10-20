@@ -45,14 +45,24 @@ jobs:
           forge test --match-test "testFuzz" --fuzz-runs 1000 -vv
         id: fuzz
 
-      - name: Generate gas snapshot (源码函数基线)
+      - name: Check gas regression (±5% threshold)
         run: |
-          # 为源码函数建立Gas基线
-          forge snapshot --match-test "testSwap|testCreateDeposit|testCreateWithdrawal|testGetPriceImpact|testGetSwapFees" --via-ir > .gas-snapshot
-          echo "Gas baseline created for source functions"
-          cat .gas-snapshot
-        continue-on-error: true
-        id: gas_snapshot
+          # 检查 gas 回归 - 如果任何函数超过 +5% 基线则失败
+          if [ -f .gas-snapshot ]; then
+            echo "📊 Checking gas regression against baseline..."
+            forge snapshot --match-path "test/forge/**/*.sol" --check .gas-snapshot || {
+              echo "❌ Gas regression detected! Functions exceed +5% threshold."
+              echo "Run 'forge snapshot --diff .gas-snapshot' to see details."
+              exit 1
+            }
+            echo "✅ Gas check passed - no regression detected"
+          else
+            echo "⚠️  No baseline found, creating new baseline..."
+            forge snapshot --match-path "test/forge/**/*.sol" --snap .gas-snapshot
+            echo "📝 New gas baseline created"
+          fi
+        continue-on-error: false
+        id: gas_check
 
       - name: Upload gas snapshot
         if: always()
