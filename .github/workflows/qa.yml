@@ -59,7 +59,7 @@ jobs:
       - name: Run Foundry build
         run: |
           forge --version
-          forge build
+          forge build -via-ir --optimize false -vv
         env:
           FOUNDRY_DISABLE_NIGHTLY_WARNING: true
         id: build
