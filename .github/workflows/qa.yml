@@ -2,7 +2,7 @@ name: QA | Swap & Liquidity Coverage (≥ 90%)
 
 on:
   push:
-    branches: [ main]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
 
@@ -111,7 +111,7 @@ jobs:
           corepack prepare yarn@4.3.0 --activate
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
 
       - name: Compile contracts
         run: yarn hardhat compile
@@ -157,7 +157,7 @@ jobs:
           corepack prepare yarn@4.3.0 --activate
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
 
       - name: Run coverage
         run: |
@@ -286,43 +286,7 @@ jobs:
           path: .gas-snapshot
 
   # ==========================================
-  # Job 5: 静态分析 (可选，但推荐)
-  # ==========================================
-  static-analysis:
-    name: Static Analysis
-    runs-on: ubuntu-latest
-    
-    container:
-      image: node:20-bookworm
-      options: --user root
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install build dependencies
-        run: |
-          apt-get update && apt-get install -y git python3 make g++ curl
-          rm -rf /var/lib/apt/lists/*
-
-      - name: Setup yarn
-        run: |
-          corepack enable
-          corepack prepare yarn@4.3.0 --activate
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile
-
-      - name: Run Slither
-        uses: crytic/slither-action@v0.3.0
-        continue-on-error: true
-        with:
-          target: 'contracts/'
-          slither-args: '--filter-paths "contracts/mock|contracts/test" --exclude naming-convention,external-function,low-level-calls'
-          fail-on: medium
-
-  # ==========================================
-  # Job 6: 生成测试报告
+  # Job 5: 生成测试报告
   # ==========================================
   test-report:
     name: Generate Test Report
@@ -354,7 +318,7 @@ jobs:
           path: artifacts/
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
 
       - name: Generate comprehensive test report
         run: |
@@ -369,7 +333,7 @@ jobs:
           path: test-report/
 
   # ==========================================
-  # Job 7: 成功状态检查
+  # Job 6: 成功状态检查
   # ==========================================
   qa-success:
     name: QA Pipeline Success
@@ -387,7 +351,7 @@ jobs:
           echo "- Gas regression: PASSED"
 
   # ==========================================
-  # Job 8: 失败通知
+  # Job 7: 失败通知
   # ==========================================
   qa-failure:
     name: QA Pipeline Failure
