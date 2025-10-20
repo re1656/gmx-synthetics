@@ -44,7 +44,7 @@ jobs:
           corepack prepare yarn@4.3.0 --activate
 
       - name: Install dependencies
-        run: yarn install --immutable
+        run: yarn install 
 
       - name: Run Foundry build
         run: |
@@ -135,7 +135,7 @@ jobs:
           corepack prepare yarn@4.3.0 --activate
 
       - name: Install dependencies
-        run: yarn install --immutable
+        run: yarn install 
 
       - name: Run coverage
         run: |
