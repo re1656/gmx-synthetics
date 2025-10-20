@@ -260,7 +260,9 @@ jobs:
           if [ ! -d "node_modules" ]; then
             npm install
           fi
-
+      - name: Install forge std library
+        run: forge install foundry-rs/forge-std --no-commit
+        
       - name: Gas regression check
         run: |
           if [ -f ".gas-snapshot" ]; then
