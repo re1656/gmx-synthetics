@@ -74,11 +74,6 @@ jobs:
           forge test --match-test "testFuzz" --via-ir --optimize false --fuzz-runs 1000 -vv
         id: fuzz
 
-      - name: Upload dependencies for gas regression
-        uses: actions/upload-artifact@v4
-        with:
-          name: node-modules
-          path: node_modules/
 
 
   # ==========================================
@@ -248,11 +243,23 @@ jobs:
         with:
           version: stable
 
-      - name: Download dependencies from foundry-tests
-        uses: actions/download-artifact@v4
-        with:
-          name: node-modules
-          path: ./
+      - name: Setup yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@4.3.0 --activate
+
+      - name: Install dependencies
+        env:
+            YARN_ENABLE_HARDENED_MODE: false
+        run: |
+          # Force node_modules mode
+          rm -rf node_modules .yarn/cache .yarn/unplugged
+          yarn config set nodeLinker node-modules
+          yarn install --immutable
+          # Fallback to npm if node_modules not created
+          if [ ! -d "node_modules" ]; then
+            npm install
+          fi
 
       - name: Gas regression check
         run: |
