@@ -242,24 +242,13 @@ jobs:
         with:
           version: stable
 
-      - name: Run gas snapshot (监控源码函数)
-        run: |
-          # 建立Gas基线 - 监控关键源码函数调用
-          forge snapshot --match-test "testSwap|testCreateDeposit|testCreateWithdrawal|testGetPriceImpact|testGetSwapFees" --via-ir > .gas-snapshot
-          echo "Gas baseline created for source functions:"
-          echo "- SwapHandler.swap() → SwapUtils.swap() → SwapUtils._swap()"
-          echo "- DepositHandler.createDeposit()"
-          echo "- WithdrawalHandler.createWithdrawal()"
-          echo "- SwapPricingUtils.getPriceImpactUsd()"
-          echo "- SwapPricingUtils.getSwapFees()"
-        id: gas_baseline
-
+   
       - name: Check gas regression
         run: |
           if [ -f ".gas-snapshot" ]; then
             echo "Checking for gas regressions in source functions..."
             # 检查Gas回归 - 5%阈值
-            forge snapshot --match-test "testSwap|testCreateDeposit|testCreateWithdrawal|testGetPriceImpact|testGetSwapFees" --via-ir --check
+            forge snapshot --match-test "testSwap|testCreateDeposit|testCreateWithdrawal|testGetPriceImpact|testGetSwapFees" --via-ir --optimize false --check
             echo "✅ Gas regression check passed"
           else
             echo "❌ No baseline gas snapshot found"
