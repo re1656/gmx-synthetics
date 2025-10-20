@@ -2,7 +2,7 @@ name: QA | Swap & Liquidity Coverage (≥ 90%)
 
 on:
   push:
-    branches: [ main, 'qa/**' ]
+    branches: [ main]
   pull_request:
     branches: [ main ]
 
