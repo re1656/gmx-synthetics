@@ -115,7 +115,7 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=8192
           OPTIMIZER: "false"
-          VIA_IR: "true"
+          VIA_IR: "false"
 
       - name: Upload Hardhat coverage artifact
         uses: actions/upload-artifact@v4
