@@ -102,7 +102,17 @@ jobs:
           corepack prepare yarn@4.3.0 --activate
 
       - name: Install dependencies
-        run: yarn install --immutable
+        env:
+            YARN_ENABLE_HARDENED_MODE: false
+        run: |
+          # Force node_modules mode
+          rm -rf node_modules .yarn/cache .yarn/unplugged
+          yarn config set nodeLinker node-modules
+          yarn install --immutable
+          # Fallback to npm if node_modules not created
+          if [ ! -d "node_modules" ]; then
+            npm install
+          fi
 
       - name: Compile contracts
         run: yarn hardhat compile
@@ -148,7 +158,17 @@ jobs:
           corepack prepare yarn@4.3.0 --activate
 
       - name: Install dependencies
-        run: yarn install 
+        env:
+            YARN_ENABLE_HARDENED_MODE: false
+        run: |
+          # Force node_modules mode
+          rm -rf node_modules .yarn/cache .yarn/unplugged
+          yarn config set nodeLinker node-modules
+          yarn install --immutable
+          # Fallback to npm if node_modules not created
+          if [ ! -d "node_modules" ]; then
+            npm install
+          fi 
 
       - name: Run coverage
         run: |
