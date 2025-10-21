@@ -276,12 +276,12 @@ jobs:
         id: gas_check
         continue-on-error: true
 
-      - name: Upload gas comparison
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: gas-comparison
-          path: .gas-snapshot
+      # - name: Upload gas comparison
+      #   if: always()
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: gas-comparison
+      #     path: .gas-snapshot
 
 
   # ==========================================
