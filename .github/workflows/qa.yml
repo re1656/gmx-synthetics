@@ -115,14 +115,19 @@ jobs:
           fi
 
       - name: Compile contracts
-        run: yarn hardhat compile
+        run: npx hardhat compile
+        env:
+          OPTIMIZER: "false"
+          VIA_IR: "true"
 
       - name: Run Hardhat tests
         run: |
           export NODE_OPTIONS="--max-old-space-size=8192"
-          yarn hardhat test
+          npx hardhat test
         env:
           NODE_OPTIONS: --max-old-space-size=8192
+          OPTIMIZER: "false"
+          VIA_IR: "true"
 
       - name: Upload test results
         if: always()
@@ -173,9 +178,11 @@ jobs:
       - name: Run coverage
         run: |
           export NODE_OPTIONS="--max-old-space-size=8192"
-          yarn hardhat coverage
+          npx hardhat coverage
         env:
           NODE_OPTIONS: --max-old-space-size=8192
+          OPTIMIZER: "true"
+          VIA_IR: "false"
 
       - name: Check coverage thresholds
         run: |
