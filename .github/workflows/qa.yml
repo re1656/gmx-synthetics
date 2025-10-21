@@ -114,8 +114,8 @@ jobs:
           npx hardhat coverage --testfiles "test/exchange/LiquidityMath.ts,test/exchange/FundingAndPnL.ts"
         env:
           NODE_OPTIONS: --max-old-space-size=8192
-          OPTIMIZER: "false"
-          VIA_IR: "false"
+          OPTIMIZER: "true"
+          VIA_IR: "true"
 
       - name: Upload Hardhat coverage artifact
         uses: actions/upload-artifact@v4

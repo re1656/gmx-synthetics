@@ -1,8 +1,16 @@
 module.exports = {
   configureYulOptimizer: true,
+  providerOptions: {
+    hardfork: "shanghai",   // 确保兼容 Hardhat 2.26+
+    gasLimit: 10_000_000
+  },
+  irMinimum: true,
   skipFiles: [
-    // Skip everything except: SwapHandler, SwapUtils, SwapPricingUtils,
-    // WithdrawalHandler, DepositHandler, MarketUtils
+    // Only keep: SwapHandler, DepositHandler, WithdrawalHandler,
+    // SwapPricingUtils, MarketUtils, PositionUtils, PositionPricingUtils,
+    // PricingUtils, DecreasePositionCollateralUtils
+
+    // Skip folders
     "mock",
     "reader",
     "test",
@@ -18,7 +26,6 @@ module.exports = {
     "router",
     "config",
     "oracle",
-    "position",
     "order",
     "fee",
     "referral",
@@ -30,9 +37,29 @@ module.exports = {
     "error",
     "lib",
     "migration",
-    "pricing",
+    "nonce",
+    "claim",
+    "deposit",
+    "withdrawal",
     "utils",
-    // Skip exchange handlers except the ones we want
+    "contributor",
+    "external",
+    "feature",
+    "gov",
+    "multichain",
+    "price",
+    "safe",
+    "subaccount",
+    "v1",
+
+    // Skip swap files except SwapHandler (note: SwapPricingUtils is in pricing/)
+    "swap/SwapUtils.sol",
+    "swap/ISwapHandler.sol",
+    "swap/ISwapUtils.sol",
+
+    // Skip exchange files except SwapHandler, DepositHandler, WithdrawalHandler
+    "exchange/BaseHandler.sol",
+    "exchange/BaseOrderHandler.sol",
     "exchange/AdlHandler.sol",
     "exchange/LiquidationHandler.sol",
     "exchange/OrderHandler.sol",
@@ -44,12 +71,37 @@ module.exports = {
     "exchange/ExecuteWithdrawalUtils.sol",
     "exchange/DepositEventUtils.sol",
     "exchange/WithdrawalEventUtils.sol",
-    // Event utils
-    "deposit/DepositEventUtils.sol",
+    "exchange/GlvDepositHandler.sol",
+    "exchange/GlvShiftHandler.sol",
+    "exchange/GlvWithdrawalHandler.sol",
+    "exchange/IDepositHandler.sol",
+    "exchange/IGlvDepositHandler.sol",
+    "exchange/IGlvWithdrawalHandler.sol",
+    "exchange/IOrderExecutor.sol",
+    "exchange/IOrderHandler.sol",
+    "exchange/IShiftHandler.sol",
+    "exchange/IWithdrawalHandler.sol",
+    "exchange/ShiftHandler.sol",
+
+    // Skip market files except MarketUtils
     "market/MarketEventUtils.sol",
-    "order/OrderEventUtils.sol",
+    "market/MarketStoreUtils.sol",
+    "market/MarketFactory.sol",
+    "market/Market.sol",
+    "market/MarketToken.sol",
+    "market/MarketPoolValueInfo.sol",
+    "market/PositionImpactPoolUtils.sol",
+
+    // Skip position files except PositionUtils, PositionPricingUtils, DecreasePositionCollateralUtils
+    "position/Position.sol",
+    "position/PositionStoreUtils.sol",
     "position/PositionEventUtils.sol",
-    "referral/ReferralEventUtils.sol",
-    "withdrawal/WithdrawalEventUtils.sol",
+    "position/IncreasePositionUtils.sol",
+    "position/DecreasePositionUtils.sol",
+    "position/IncreasePositionCollateralUtils.sol",
+    "position/DecreasePositionSwapUtils.sol",
+
+    // Skip pricing files except PricingUtils, SwapPricingUtils (note: PositionPricingUtils is in position/)
+    "pricing/ISwapPricingUtils.sol",
   ],
 };
