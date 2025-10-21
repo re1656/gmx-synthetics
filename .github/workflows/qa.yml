@@ -12,12 +12,12 @@ env:
 
 jobs:
   # ==========================================
-  # Job 1: Coverage测试（包含所有测试 + 覆盖率检查）
+  # Job 1: Foundry Coverage (单元测试 + Fuzz测试)
   # ==========================================
-  coverage:
-    name: Coverage Analysis (Foundry + Hardhat)
+  foundry-coverage:
+    name: Foundry Coverage (Unit + Fuzz)
     runs-on: ubuntu-latest
-    
+
     container:
       image: node:20-bookworm
       options: --user root
@@ -30,7 +30,7 @@ jobs:
 
       - name: Install build dependencies
         run: |
-          apt-get update && apt-get install -y git python3 make g++ curl lcov
+          apt-get update && apt-get install -y git python3 make g++ curl
           rm -rf /var/lib/apt/lists/*
 
       - name: Install Foundry
@@ -56,19 +56,60 @@ jobs:
             npm install
           fi
 
-      - name: Run Foundry coverage (background)
+      - name: Run Foundry coverage
         run: |
-          echo "Starting Foundry coverage..."
-          forge coverage --match-path "test/forge/**/*.sol" --via-ir --optimize false --report lcov > forge_coverage.log 2>&1 &
-          FORGE_PID=$!
-          echo $FORGE_PID > forge_pid.txt
-          echo "Foundry coverage started (PID: $FORGE_PID)"
+          echo "Running Foundry coverage (Unit tests + Fuzz tests with 1000 runs)..."
+          forge coverage --match-path "test/forge/**/*.sol" --via-ir --optimize false --fuzz-runs 1000 --report lcov
         env:
           FOUNDRY_DISABLE_NIGHTLY_WARNING: true
 
-      - name: Run Hardhat coverage (parallel)
+      - name: Upload Foundry coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: foundry-coverage
+          path: lcov.info
+
+  # ==========================================
+  # Job 2: Hardhat Coverage (集成测试)
+  # ==========================================
+  hardhat-coverage:
+    name: Hardhat Coverage (Integration)
+    runs-on: ubuntu-latest
+
+    container:
+      image: node:20-bookworm
+      options: --user root
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
         run: |
-          echo "Starting Hardhat coverage..."
+          apt-get update && apt-get install -y git python3 make g++ curl
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Setup yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@4.3.0 --activate
+
+      - name: Install dependencies
+        env:
+            YARN_ENABLE_HARDENED_MODE: false
+        run: |
+          # Force node_modules mode
+          rm -rf node_modules .yarn/cache .yarn/unplugged
+          yarn config set nodeLinker node-modules
+          yarn install --immutable
+          # Fallback to npm if node_modules not created
+          if [ ! -d "node_modules" ]; then
+            npm install
+          fi
+
+      - name: Run Hardhat coverage
+        run: |
+          echo "Running Hardhat coverage (Integration tests)..."
           export NODE_OPTIONS="--max-old-space-size=8192"
           npx hardhat coverage --testfiles "test/exchange/LiquidityMath.ts,test/exchange/FundingAndPnL.ts"
         env:
@@ -76,42 +117,55 @@ jobs:
           OPTIMIZER: "true"
           VIA_IR: "false"
 
-      - name: Wait for Foundry coverage
+      - name: Upload Hardhat coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hardhat-coverage
+          path: coverage/lcov.info
+
+  # ==========================================
+  # Job 3: 合并覆盖率并检查阈值
+  # ==========================================
+  merge-coverage:
+    name: Merge Coverage & Check Thresholds
+    runs-on: ubuntu-latest
+    needs: [foundry-coverage, hardhat-coverage]
+
+    container:
+      image: node:20-bookworm
+      options: --user root
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install lcov
         run: |
-          if [ -f forge_pid.txt ]; then
-            FORGE_PID=$(cat forge_pid.txt)
-            echo "Waiting for Foundry coverage (PID: $FORGE_PID)..."
-            wait $FORGE_PID
-            FORGE_EXIT=$?
-            echo "Foundry coverage completed with exit code: $FORGE_EXIT"
-            echo "=== Foundry Coverage Output ==="
-            cat forge_coverage.log
-            if [ $FORGE_EXIT -ne 0 ]; then
-              echo "❌ Foundry coverage failed"
-              exit $FORGE_EXIT
-            fi
-          fi
+          apt-get update && apt-get install -y lcov
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Download Foundry coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: foundry-coverage
+          path: ./
+
+      - name: Download Hardhat coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: hardhat-coverage
+          path: ./coverage/
 
       - name: Merge coverage reports
         run: |
           echo "Merging coverage reports..."
-          # Foundry outputs to lcov.info
-          if [ -f lcov.info ]; then
-            mv lcov.info lcov_foundry.info
-            echo "✓ Found Foundry coverage: lcov_foundry.info"
-          else
-            echo "❌ Foundry lcov.info not found"
-            exit 1
-          fi
+          # Foundry lcov.info is in root
+          mv lcov.info lcov_foundry.info
+          echo "✓ Foundry coverage: lcov_foundry.info"
 
-          # Hardhat outputs to coverage/lcov.info
-          if [ -f coverage/lcov.info ]; then
-            cp coverage/lcov.info lcov_hardhat.info
-            echo "✓ Found Hardhat coverage: lcov_hardhat.info"
-          else
-            echo "❌ Hardhat coverage/lcov.info not found"
-            exit 1
-          fi
+          # Hardhat lcov.info is in coverage/
+          cp coverage/lcov.info lcov_hardhat.info
+          echo "✓ Hardhat coverage: lcov_hardhat.info"
 
           # Merge using lcov
           lcov \
@@ -126,15 +180,14 @@ jobs:
           genhtml lcov_merged.info -o coverage_merged --branch-coverage
           echo "✓ Generated merged HTML report: coverage_merged/"
 
-          # Update coverage/lcov.info with merged data for checkCoverage.js
-          cp lcov_merged.info coverage/lcov.info
-
       - name: Check coverage thresholds
         run: |
+          # Update coverage/lcov.info with merged data for checkCoverage.js
+          cp lcov_merged.info coverage/lcov.info
           node scripts/checkCoverage.js
         continue-on-error: false
 
-      - name: Upload coverage to Codecov
+      - name: Upload merged coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
           files: ./lcov_merged.info
@@ -142,22 +195,16 @@ jobs:
           name: codecov-umbrella
           fail_ci_if_error: false
 
-      - name: Generate coverage badge
-        run: |
-          echo "Generating coverage badge..."
-          # Extract coverage percentage from report
-          if [ -f "coverage/coverage-summary.json" ]; then
-            COVERAGE=$(node -e "console.log(JSON.parse(require('fs').readFileSync('coverage/coverage-summary.json')).total.lines.pct)")
-            echo "Coverage: ${COVERAGE}%"
-            echo "COVERAGE=${COVERAGE}" >> $GITHUB_ENV
-          fi
-
-      - name: Upload coverage report
+      - name: Upload merged coverage report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report
-          path: coverage/
+          name: merged-coverage-report
+          path: |
+            lcov_foundry.info
+            lcov_hardhat.info
+            lcov_merged.info
+            coverage_merged/
 
       - name: Comment PR with coverage
         if: github.event_name == 'pull_request'
@@ -188,12 +235,12 @@ jobs:
             }
 
   # ==========================================
-  # Job 2: Gas回归测试
+  # Job 4: Gas回归测试
   # ==========================================
   gas-regression:
     name: Gas Regression Check
     runs-on: ubuntu-latest
-    needs: [coverage]
+    needs: [foundry-coverage]
     
     container:
       image: node:20-bookworm
@@ -257,12 +304,12 @@ jobs:
 
 
   # ==========================================
-  # Job 3: 成功状态检查
+  # Job 5: 成功状态检查
   # ==========================================
   qa-success:
     name: QA Pipeline Success
     runs-on: ubuntu-latest
-    needs: [coverage, gas-regression]
+    needs: [foundry-coverage, hardhat-coverage, merge-coverage, gas-regression]
     if: success()
 
     steps:
@@ -271,16 +318,16 @@ jobs:
           echo "✅ All QA checks passed!"
           echo "- Foundry coverage: PASSED"
           echo "- Hardhat coverage: PASSED"
-          echo "- Coverage targets: MET"
+          echo "- Merged coverage targets: MET"
           echo "- Gas regression: PASSED"
 
   # ==========================================
-  # Job 4: 失败通知
+  # Job 6: 失败通知
   # ==========================================
   qa-failure:
     name: QA Pipeline Failure
     runs-on: ubuntu-latest
-    needs: [coverage, gas-regression]
+    needs: [foundry-coverage, hardhat-coverage, merge-coverage, gas-regression]
     if: failure()
 
     steps:
