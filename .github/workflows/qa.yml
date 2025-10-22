@@ -178,11 +178,11 @@ jobs:
         run: |
           echo "Running integration tests..."
           export NODE_OPTIONS="--max-old-space-size=8192"
-          npx hardhat test "test/exchange/{LiquidityMath,FundingAndPnL}.ts"
+          npx hardhat test test/exchange/LiquidityMath.ts test/exchange/FundingAndPnL.ts
         env:
           NODE_OPTIONS: --max-old-space-size=8192
           OPTIMIZER: "true"
-          VIA_IR: "true"
+          VIA_IR: "false"
 
   # ==========================================
   # Job 3: Gas回归测试
@@ -243,7 +243,7 @@ jobs:
             exit 1
           fi
         id: gas_check
-        continue-on-error: true
+        continue-on-error: false
 
   # ==========================================
   # Job 4: 成功状态检查

@@ -26,44 +26,75 @@ const CORE_CONTRACTS = [
   'contracts/pricing/SwapPricingUtils.sol'
 ];
 
-function parseCoverageSummary() {
-  const summaryPath = path.join(__dirname, '../coverage-summary.txt');
+function parseLcov() {
+  const lcovPath = path.join(__dirname, '../lcov.info');
 
-  if (!fs.existsSync(summaryPath)) {
-    console.error('❌ 错误: 找不到覆盖率报告文件');
-    console.error('   请先运行: forge coverage --report summary');
+  if (!fs.existsSync(lcovPath)) {
+    console.error('❌ 错误: 找不到 lcov.info 文件');
+    console.error('   请先运行: forge coverage --report lcov');
     process.exit(1);
   }
 
-  const summary = fs.readFileSync(summaryPath, 'utf-8');
-  
-  // 解析总体覆盖率
-  const totalMatch = summary.match(/Total:\s+(\d+\.\d+)%\s+(\d+\.\d+)%/);
-  if (!totalMatch) {
-    console.error('❌ 错误: 无法解析总体覆盖率');
-    process.exit(1);
-  }
+  const lcov = fs.readFileSync(lcovPath, 'utf-8');
+  const lines = lcov.split('\n');
 
-  const totalLines = parseFloat(totalMatch[1]);
-  const totalBranches = parseFloat(totalMatch[2]);
-
-  // 解析各个合约的覆盖率
   const contractCoverage = {};
-  const lines = summary.split('\n');
-  
+  let currentFile = null;
+  let linesFound = 0;
+  let linesHit = 0;
+  let branchesFound = 0;
+  let branchesHit = 0;
+
   for (const line of lines) {
-    for (const contract of CORE_CONTRACTS) {
-      if (line.includes(contract)) {
-        const match = line.match(/(\d+\.\d+)%\s+(\d+\.\d+)%/);
-        if (match) {
-          contractCoverage[contract] = {
-            lines: parseFloat(match[1]),
-            branches: parseFloat(match[2])
-          };
-        }
-      }
+    if (line.startsWith('SF:')) {
+      currentFile = line.substring(3);
+      linesFound = 0;
+      linesHit = 0;
+      branchesFound = 0;
+      branchesHit = 0;
+    } else if (line.startsWith('DA:')) {
+      const parts = line.substring(3).split(',');
+      linesFound++;
+      if (parseInt(parts[1]) > 0) linesHit++;
+    } else if (line.startsWith('BRDA:')) {
+      const parts = line.substring(5).split(',');
+      branchesFound++;
+      if (parts[3] !== '-' && parseInt(parts[3]) > 0) branchesHit++;
+    } else if (line === 'end_of_record' && currentFile) {
+      const linesCoverage = linesFound > 0 ? (linesHit / linesFound) * 100 : 0;
+      // 如果没有分支，认为是100%覆盖（因为没有分支需要测试）
+      const branchesCoverage = branchesFound > 0 ? (branchesHit / branchesFound) * 100 : 100;
+
+      contractCoverage[currentFile] = {
+        lines: linesCoverage,
+        branches: branchesCoverage,
+        linesFound,
+        linesHit,
+        branchesFound,
+        branchesHit
+      };
+      currentFile = null;
     }
   }
+
+  // 计算总体覆盖率
+  let totalLinesFound = 0;
+  let totalLinesHit = 0;
+  let totalBranchesFound = 0;
+  let totalBranchesHit = 0;
+
+  for (const contract of CORE_CONTRACTS) {
+    const cov = contractCoverage[contract];
+    if (cov) {
+      totalLinesFound += cov.linesFound;
+      totalLinesHit += cov.linesHit;
+      totalBranchesFound += cov.branchesFound;
+      totalBranchesHit += cov.branchesHit;
+    }
+  }
+
+  const totalLines = totalLinesFound > 0 ? (totalLinesHit / totalLinesFound) * 100 : 0;
+  const totalBranches = totalBranchesFound > 0 ? (totalBranchesHit / totalBranchesFound) * 100 : 0;
 
   return {
     total: { lines: totalLines, branches: totalBranches },
@@ -109,8 +140,13 @@ function checkCoreContracts(coverage) {
 
     const status = passed ? '✅' : '❌';
     const contractName = contract.split('/').pop();
-    
-    console.log(`${status} ${contractName.padEnd(25)} | 行: ${contractCov.lines.toFixed(1)}% (目标 ${THRESHOLDS.lines}%) | 分支: ${contractCov.branches.toFixed(1)}% (目标 ${THRESHOLDS.branches}%)`);
+
+    // 显示分支覆盖率，如果没有分支则显示 "N/A"
+    const branchDisplay = contractCov.branchesFound > 0
+      ? `${contractCov.branches.toFixed(1)}% (目标 ${THRESHOLDS.branches}%)`
+      : 'N/A (无分支)';
+
+    console.log(`${status} ${contractName.padEnd(25)} | 行: ${contractCov.lines.toFixed(1)}% (目标 ${THRESHOLDS.lines}%) | 分支: ${branchDisplay}`);
 
     if (!passed) {
       allPassed = false;
@@ -154,7 +190,7 @@ function printSummary(totalPassed, contractsPassed) {
 function main() {
   console.log('🔍 开始核心合约覆盖率阈值检查...\n');
 
-  const coverage = parseCoverageSummary();
+  const coverage = parseLcov();
 
   const totalPassed = checkTotalCoverage(coverage);
   const contractsPassed = checkCoreContracts(coverage);
