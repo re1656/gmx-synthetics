@@ -10,6 +10,11 @@ env:
   NODE_VERSION: '20.x'
   FOUNDRY_PROFILE: ci
 
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
 jobs:
   # ==========================================
   # Job 1: Foundry Coverage (核心合约)
@@ -84,6 +89,32 @@ jobs:
           echo "Checking coverage thresholds..."
           node scripts/checkCoreCoverage.js
         continue-on-error: false
+
+      - name: Generate coverage badge
+        if: always()
+        run: |
+          echo "Generating coverage badge data..."
+          node scripts/generateCoverageBadge.js
+        continue-on-error: true
+
+      - name: Update README badges
+        if: always() && github.ref == 'refs/heads/main'
+        run: |
+          echo "Updating README.md badges..."
+          node scripts/updateReadmeBadges.js
+
+          # Commit and push if changes
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet README.md; then
+            echo "No badge changes to commit"
+          else
+            git add README.md
+            git commit -m "Update coverage badges [skip ci]"
+            git push
+          fi
+        continue-on-error: true
 
       - name: Upload Foundry coverage artifact
         uses: actions/upload-artifact@v4
