@@ -61,111 +61,33 @@ jobs:
             npm install
           fi
 
-      - name: Run Foundry coverage (Core Contracts)
+      - name: Run Foundry coverage
         run: |
-          echo "Running Foundry coverage for core contracts..."
-          echo "Target contracts:"
-          echo "- contracts/swap/SwapHandler.sol"
-          echo "- contracts/swap/SwapUtils.sol"
-          echo "- contracts/exchange/DepositHandler.sol"
-          echo "- contracts/exchange/WithdrawalHandler.sol"
-          echo "- contracts/pricing/SwapPricingUtils.sol"
-          echo ""
-          echo "Coverage thresholds:"
-          echo "- Lines: ≥85%"
-          echo "- Branches: ≥80%"
-          echo ""
           forge coverage \
             --match-path "test/forge/**/*.sol" \
             --ir-minimum \
             --fuzz-runs 1000 \
-            --report lcov \
-            --report summary
+            --report lcov
         env:
           FOUNDRY_DISABLE_NIGHTLY_WARNING: true
 
       - name: Check coverage thresholds
-        run: |
-          echo "Checking coverage thresholds..."
-          node scripts/checkCoreCoverage.js
+        run: node scripts/checkCoreCoverage.js
         continue-on-error: false
 
-      - name: Generate coverage badge
+      - name: Generate coverage badge data
         if: always()
-        run: |
-          echo "Generating coverage badge data..."
-          node scripts/generateCoverageBadge.js
+        run: node scripts/generateCoverageBadge.js
         continue-on-error: true
 
-      - name: Update README badges
-        if: always() && github.ref == 'refs/heads/main'
-        run: |
-          echo "Updating README.md badges..."
-          node scripts/updateReadmeBadges.js
-
-          # Commit and push if changes
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-          if git diff --quiet README.md; then
-            echo "No badge changes to commit"
-          else
-            git add README.md
-            git commit -m "Update coverage badges [skip ci]"
-            git push
-          fi
-        continue-on-error: true
-
-      - name: Upload Foundry coverage artifact
+      - name: Upload coverage artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: foundry-coverage
           path: |
             lcov.info
-            coverage-summary.txt
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./lcov.info
-          flags: core-contracts
-          name: codecov-core-contracts
-          fail_ci_if_error: false
-
-      - name: Comment PR with coverage
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            if (fs.existsSync('coverage-summary.txt')) {
-              const summary = fs.readFileSync('coverage-summary.txt', 'utf-8');
-              
-              // Extract coverage percentages from summary
-              const linesMatch = summary.match(/Lines:\s+(\d+\.\d+)%/);
-              const branchesMatch = summary.match(/Branches:\s+(\d+\.\d+)%/);
-              
-              const lines = linesMatch ? parseFloat(linesMatch[1]) : 0;
-              const branches = branchesMatch ? parseFloat(branchesMatch[1]) : 0;
-
-              const comment = `## 📊 Core Contracts Coverage Report\n\n` +
-                `| Contract | Lines | Branches | Status |\n` +
-                `|----------|-------|----------|--------|\n` +
-                `| SwapHandler.sol | ${lines}% | ${branches}% | ${lines >= 85 && branches >= 80 ? '✅' : '❌'} |\n` +
-                `| SwapUtils.sol | ${lines}% | ${branches}% | ${lines >= 85 && branches >= 80 ? '✅' : '❌'} |\n` +
-                `| DepositHandler.sol | ${lines}% | ${branches}% | ${lines >= 85 && branches >= 80 ? '✅' : '❌'} |\n` +
-                `| WithdrawalHandler.sol | ${lines}% | ${branches}% | ${lines >= 85 && branches >= 80 ? '✅' : '❌'} |\n` +
-                `| SwapPricingUtils.sol | ${lines}% | ${branches}% | ${lines >= 85 && branches >= 80 ? '✅' : '❌'} |\n\n` +
-                `**Thresholds:** Lines ≥85%, Branches ≥80%\n\n` +
-                `[View detailed coverage report](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`;
-
-              github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: comment
-              });
-            }
+            coverage-badge.json
 
   # ==========================================
   # Job 2: Integration Tests (Test Only)
@@ -222,7 +144,8 @@ jobs:
     name: Gas Regression Check
     runs-on: ubuntu-latest
     needs: [foundry-coverage]
-    
+    if: always()
+
     container:
       image: node:20-bookworm
       options: --user root

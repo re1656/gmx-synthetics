@@ -87,7 +87,7 @@ describe("Exchange.FundingAndPnL", () => {
       expect(positionCount).to.equal(2, "Should have 2 open positions");
     });
 
-    it.skip("should distribute funding from longs to shorts when longs dominate", async () => {
+    it("should distribute funding from longs to shorts when longs dominate", async () => {
       // Setup: Large long, small short
       await handleOrder(fixture, {
         create: {
@@ -130,7 +130,7 @@ describe("Exchange.FundingAndPnL", () => {
       // This test verifies setup for funding accrual
     });
 
-    it.skip("should distribute funding from shorts to longs when shorts dominate", async () => {
+    it("should distribute funding from shorts to longs when shorts dominate", async () => {
       // Setup: Small long, large short
       await handleOrder(fixture, {
         create: {
@@ -173,7 +173,7 @@ describe("Exchange.FundingAndPnL", () => {
       expect(positionCount).to.equal(2, "Should have 2 open positions");
     });
 
-    it.skip("should conserve total value in funding payments", async () => {
+    it("should conserve total value in funding payments", async () => {
       // Record initial pool amounts
       const initialLongPool = await getPoolAmount(dataStore, ethUsdMarket.marketToken, wnt.address);
       const initialShortPool = await getPoolAmount(dataStore, ethUsdMarket.marketToken, usdc.address);
@@ -267,7 +267,7 @@ describe("Exchange.FundingAndPnL", () => {
       });
 
       // Price increases to $6000
-      const updatedPrice = expandDecimals(6000, 12);
+      const updatedPrice = expandDecimals(6000, 4);
 
       // Close position at higher price
       await handleOrder(fixture, {
@@ -298,7 +298,7 @@ describe("Exchange.FundingAndPnL", () => {
       expect(finalBalance).to.be.gt(0, "User should receive tokens back");
     });
 
-    it.skip("should accrue negative PnL correctly for long positions when price decreases", async () => {
+    it("should accrue negative PnL correctly for long positions when price decreases", async () => {
       // Open long position at $5000
       await handleOrder(fixture, {
         create: {
@@ -314,7 +314,7 @@ describe("Exchange.FundingAndPnL", () => {
       });
 
       // Price decreases to $4000
-      const decreasedPrice = expandDecimals(4000, 12);
+      const decreasedPrice = expandDecimals(4000, 4);
 
       // Close position at lower price
       await handleOrder(fixture, {
@@ -345,7 +345,7 @@ describe("Exchange.FundingAndPnL", () => {
       expect(finalBalance).to.be.gte(0, "User balance should be non-negative");
     });
 
-    it.skip("should accrue positive PnL correctly for short positions when price decreases", async () => {
+    it("should accrue positive PnL correctly for short positions when price decreases", async () => {
       // Open short position at $5000
       await handleOrder(fixture, {
         create: {
@@ -361,7 +361,7 @@ describe("Exchange.FundingAndPnL", () => {
       });
 
       // Price decreases to $4000
-      const decreasedPrice = expandDecimals(4000, 12);
+      const decreasedPrice = expandDecimals(4000, 4);
 
       // Close position at lower price (profit for short)
       await handleOrder(fixture, {
@@ -391,7 +391,7 @@ describe("Exchange.FundingAndPnL", () => {
       expect(finalBalance).to.be.gt(0, "User should receive USDC back");
     });
 
-    it.skip("should accrue negative PnL correctly for short positions when price increases", async () => {
+    it("should accrue negative PnL correctly for short positions when price increases", async () => {
       // Open short position at $5000
       await handleOrder(fixture, {
         create: {
@@ -407,7 +407,7 @@ describe("Exchange.FundingAndPnL", () => {
       });
 
       // Price increases to $6000
-      const increasedPrice = expandDecimals(6000, 12);
+      const increasedPrice = expandDecimals(6000, 4);
 
       // Close position at higher price (loss for short)
       await handleOrder(fixture, {
@@ -437,7 +437,7 @@ describe("Exchange.FundingAndPnL", () => {
       expect(finalBalance).to.be.gte(0, "User balance should be non-negative");
     });
 
-    it.skip("should update market state correctly after PnL realization", async () => {
+    it("should update market state correctly after PnL realization", async () => {
       // Record initial state
       const initialLongPool = await getPoolAmount(dataStore, ethUsdMarket.marketToken, wnt.address);
 
@@ -455,7 +455,7 @@ describe("Exchange.FundingAndPnL", () => {
         },
       });
 
-      const increasedPrice = expandDecimals(5500, 12);
+      const increasedPrice = expandDecimals(5500, 4);
 
       await handleOrder(fixture, {
         create: {
@@ -490,7 +490,7 @@ describe("Exchange.FundingAndPnL", () => {
   });
 
   describe("Value Conservation", () => {
-    it.skip("should conserve value across long and short sides with balanced positions", async () => {
+    it("should conserve value across long and short sides with balanced positions", async () => {
       // Record initial pool state
       const initialLongPool = await getPoolAmount(dataStore, ethUsdMarket.marketToken, wnt.address);
       const initialShortPool = await getPoolAmount(dataStore, ethUsdMarket.marketToken, usdc.address);
@@ -563,7 +563,7 @@ describe("Exchange.FundingAndPnL", () => {
       expect(finalShortPool).to.be.gt(0, "Short pool should be positive");
     });
 
-    it.skip("should maintain pool solvency after funding accrual and PnL settlement", async () => {
+    it("should maintain pool solvency after funding accrual and PnL settlement", async () => {
       // Record initial pools
       const initialLongPool = await getPoolAmount(dataStore, ethUsdMarket.marketToken, wnt.address);
       const initialShortPool = await getPoolAmount(dataStore, ethUsdMarket.marketToken, usdc.address);
@@ -600,7 +600,7 @@ describe("Exchange.FundingAndPnL", () => {
       await ethers.provider.send("evm_mine", []);
 
       // Price moves
-      const newPrice = expandDecimals(5200, 12);
+      const newPrice = expandDecimals(5200, 4);
 
       // Close positions
       await handleOrder(fixture, {
@@ -653,7 +653,7 @@ describe("Exchange.FundingAndPnL", () => {
       expect(positionCount).to.equal(0, "All positions should be closed");
     });
 
-    it.skip("should handle edge case: one side completely wins PnL battle", async () => {
+    it("should handle edge case: one side completely wins PnL battle", async () => {
       // Setup: Long wins big, short loses
       await handleOrder(fixture, {
         create: {
@@ -682,7 +682,7 @@ describe("Exchange.FundingAndPnL", () => {
       });
 
       // Price increases significantly (longs win)
-      const highPrice = expandDecimals(7000, 12);
+      const highPrice = expandDecimals(7000, 4);
 
       // Close long (profit)
       await handleOrder(fixture, {
@@ -738,7 +738,7 @@ describe("Exchange.FundingAndPnL", () => {
   });
 
   describe("Edge Cases", () => {
-    it.skip("should handle zero funding when OI is balanced", async () => {
+    it("should handle zero funding when OI is balanced", async () => {
       // Open perfectly balanced positions
       const size = decimalToFloat(50_000);
 
@@ -810,7 +810,7 @@ describe("Exchange.FundingAndPnL", () => {
       expect(positionCount).to.equal(0, "All positions should be closed");
     });
 
-    it.skip("should handle position with zero PnL (price unchanged)", async () => {
+    it("should handle position with zero PnL (price unchanged)", async () => {
       // Open position
       await handleOrder(fixture, {
         create: {
