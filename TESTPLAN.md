@@ -1,4 +1,4 @@
-# 测试计划：GMX Synthetics Swap & Liquidity 覆盖率
+# 测试计划：GMX Synthetics Core Module 
 
 ## 1. 概述
 
