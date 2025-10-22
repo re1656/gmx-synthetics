@@ -189,9 +189,9 @@ jobs:
         run: |
           if [ -f ".gas-snapshot" ]; then
             echo "Checking for gas regressions in source functions..."
-            # 检查Gas回归 - 5%阈值
-            forge snapshot --match-test "testSwap|testCreateDeposit|testCreateWithdrawal|testGetPriceImpact|testGetSwapFees" --via-ir --optimize false --check
-            echo "✅ Gas regression check passed"
+            # 检查Gas回归 - 5%阈值 (只有增加超过5%才会失败)
+            forge snapshot --match-test "testSwap|testCreateDeposit|testCreateWithdrawal|testGetPriceImpact|testGetSwapFees" --via-ir --optimize false --check --tolerance 5
+            echo "✅ Gas regression check passed (tolerance: ±5%)"
           else
             echo "❌ No baseline gas snapshot found"
             exit 1
