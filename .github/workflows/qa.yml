@@ -178,7 +178,7 @@ jobs:
         run: |
           echo "Running integration tests..."
           export NODE_OPTIONS="--max-old-space-size=8192"
-          npx hardhat test --testfiles "test/exchange/LiquidityMath.ts,test/exchange/FundingAndPnL.ts"
+          npx hardhat test "test/exchange/{LiquidityMath,FundingAndPnL}.ts"
         env:
           NODE_OPTIONS: --max-old-space-size=8192
           OPTIMIZER: "true"
