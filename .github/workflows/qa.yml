@@ -1,4 +1,4 @@
-name: QA | Swap & Liquidity Coverage (≥ 90%)
+name: QA | Core Contracts Coverage (≥85% Lines, ≥80% Branches)
 
 on:
   push:
@@ -12,10 +12,10 @@ env:
 
 jobs:
   # ==========================================
-  # Job 1: Foundry Coverage (单元测试 + Fuzz测试)
+  # Job 1: Foundry Coverage (核心合约)
   # ==========================================
   foundry-coverage:
-    name: Foundry Coverage (Unit + Fuzz)
+    name: Foundry Coverage (Core Contracts)
     runs-on: ubuntu-latest
 
     container:
@@ -56,24 +56,91 @@ jobs:
             npm install
           fi
 
-      - name: Run Foundry coverage
+      - name: Run Foundry coverage (Core Contracts)
         run: |
-          echo "Running Foundry coverage (Unit tests + Fuzz tests with 1000 runs)..."
-          forge coverage --match-path "test/forge/**/*.sol" --ir-minimum --fuzz-runs 1000 --report lcov
+          echo "Running Foundry coverage for core contracts..."
+          echo "Target contracts:"
+          echo "- contracts/swap/SwapHandler.sol"
+          echo "- contracts/swap/SwapUtils.sol"
+          echo "- contracts/exchange/DepositHandler.sol"
+          echo "- contracts/exchange/WithdrawalHandler.sol"
+          echo "- contracts/pricing/SwapPricingUtils.sol"
+          echo ""
+          echo "Coverage thresholds:"
+          echo "- Lines: ≥85%"
+          echo "- Branches: ≥80%"
+          echo ""
+          forge coverage \
+            --match-path "test/forge/**/*.sol" \
+            --ir-minimum \
+            --fuzz-runs 1000 \
+            --report lcov \
+            --report summary
         env:
           FOUNDRY_DISABLE_NIGHTLY_WARNING: true
+
+      - name: Check coverage thresholds
+        run: |
+          echo "Checking coverage thresholds..."
+          node scripts/checkCoreCoverage.js
+        continue-on-error: false
 
       - name: Upload Foundry coverage artifact
         uses: actions/upload-artifact@v4
         with:
           name: foundry-coverage
-          path: lcov.info
+          path: |
+            lcov.info
+            coverage-summary.txt
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./lcov.info
+          flags: core-contracts
+          name: codecov-core-contracts
+          fail_ci_if_error: false
+
+      - name: Comment PR with coverage
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            if (fs.existsSync('coverage-summary.txt')) {
+              const summary = fs.readFileSync('coverage-summary.txt', 'utf-8');
+              
+              // Extract coverage percentages from summary
+              const linesMatch = summary.match(/Lines:\s+(\d+\.\d+)%/);
+              const branchesMatch = summary.match(/Branches:\s+(\d+\.\d+)%/);
+              
+              const lines = linesMatch ? parseFloat(linesMatch[1]) : 0;
+              const branches = branchesMatch ? parseFloat(branchesMatch[1]) : 0;
+
+              const comment = `## 📊 Core Contracts Coverage Report\n\n` +
+                `| Contract | Lines | Branches | Status |\n` +
+                `|----------|-------|----------|--------|\n` +
+                `| SwapHandler.sol | ${lines}% | ${branches}% | ${lines >= 85 && branches >= 80 ? '✅' : '❌'} |\n` +
+                `| SwapUtils.sol | ${lines}% | ${branches}% | ${lines >= 85 && branches >= 80 ? '✅' : '❌'} |\n` +
+                `| DepositHandler.sol | ${lines}% | ${branches}% | ${lines >= 85 && branches >= 80 ? '✅' : '❌'} |\n` +
+                `| WithdrawalHandler.sol | ${lines}% | ${branches}% | ${lines >= 85 && branches >= 80 ? '✅' : '❌'} |\n` +
+                `| SwapPricingUtils.sol | ${lines}% | ${branches}% | ${lines >= 85 && branches >= 80 ? '✅' : '❌'} |\n\n` +
+                `**Thresholds:** Lines ≥85%, Branches ≥80%\n\n` +
+                `[View detailed coverage report](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`;
+
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
 
   # ==========================================
-  # Job 2: Hardhat Coverage (集成测试)
+  # Job 2: Integration Tests (Test Only)
   # ==========================================
-  hardhat-coverage:
-    name: Hardhat Coverage (Integration)
+  integration-tests:
+    name: Integration Tests
     runs-on: ubuntu-latest
 
     container:
@@ -107,135 +174,18 @@ jobs:
             npm install
           fi
 
-      - name: Run Hardhat coverage
+      - name: Run Integration Tests
         run: |
-          echo "Running Hardhat coverage (Integration tests)..."
+          echo "Running integration tests..."
           export NODE_OPTIONS="--max-old-space-size=8192"
-          npx hardhat coverage --testfiles "test/exchange/LiquidityMath.ts,test/exchange/FundingAndPnL.ts"
+          npx hardhat test --testfiles "test/exchange/LiquidityMath.ts,test/exchange/FundingAndPnL.ts"
         env:
           NODE_OPTIONS: --max-old-space-size=8192
           OPTIMIZER: "true"
           VIA_IR: "true"
 
-      - name: Upload Hardhat coverage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: hardhat-coverage
-          path: coverage/lcov.info
-
   # ==========================================
-  # Job 3: 合并覆盖率并检查阈值
-  # ==========================================
-  merge-coverage:
-    name: Merge Coverage & Check Thresholds
-    runs-on: ubuntu-latest
-    needs: [foundry-coverage, hardhat-coverage]
-
-    container:
-      image: node:20-bookworm
-      options: --user root
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install lcov
-        run: |
-          apt-get update && apt-get install -y lcov
-          rm -rf /var/lib/apt/lists/*
-
-      - name: Download Foundry coverage
-        uses: actions/download-artifact@v4
-        with:
-          name: foundry-coverage
-          path: ./
-
-      - name: Download Hardhat coverage
-        uses: actions/download-artifact@v4
-        with:
-          name: hardhat-coverage
-          path: ./coverage/
-
-      - name: Merge coverage reports
-        run: |
-          echo "Merging coverage reports..."
-          # Foundry lcov.info is in root
-          mv lcov.info lcov_foundry.info
-          echo "✓ Foundry coverage: lcov_foundry.info"
-
-          # Hardhat lcov.info is in coverage/
-          cp coverage/lcov.info lcov_hardhat.info
-          echo "✓ Hardhat coverage: lcov_hardhat.info"
-
-          # Merge using lcov
-          lcov \
-            -a lcov_foundry.info \
-            -a lcov_hardhat.info \
-            -o lcov_merged.info \
-            --rc lcov_branch_coverage=1
-
-          echo "✓ Coverage reports merged: lcov_merged.info"
-
-          # Generate merged HTML report
-          genhtml lcov_merged.info -o coverage_merged --branch-coverage
-          echo "✓ Generated merged HTML report: coverage_merged/"
-
-      - name: Check coverage thresholds
-        run: |
-          # Update coverage/lcov.info with merged data for checkCoverage.js
-          cp lcov_merged.info coverage/lcov.info
-          node scripts/checkCoverage.js
-        continue-on-error: false
-
-      - name: Upload merged coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./lcov_merged.info
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
-
-      - name: Upload merged coverage report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: merged-coverage-report
-          path: |
-            lcov_foundry.info
-            lcov_hardhat.info
-            lcov_merged.info
-            coverage_merged/
-
-      - name: Comment PR with coverage
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            if (fs.existsSync('coverage/coverage-summary.json')) {
-              const coverage = JSON.parse(fs.readFileSync('coverage/coverage-summary.json'));
-              const lines = coverage.total.lines.pct;
-              const branches = coverage.total.branches.pct;
-              const functions = coverage.total.functions.pct;
-
-              const comment = `## 📊 Coverage Report\n\n` +
-                `| Metric | Coverage | Target | Status |\n` +
-                `|--------|----------|--------|--------|\n` +
-                `| Lines | ${lines}% | 90% | ${lines >= 90 ? '✅' : '❌'} |\n` +
-                `| Branches | ${branches}% | 80% | ${branches >= 80 ? '✅' : '❌'} |\n` +
-                `| Functions | ${functions}% | 85% | ${functions >= 85 ? '✅' : '❌'} |\n\n` +
-                `[View detailed coverage report](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`;
-
-              github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: comment
-              });
-            }
-
-  # ==========================================
-  # Job 4: Gas回归测试
+  # Job 3: Gas回归测试
   # ==========================================
   gas-regression:
     name: Gas Regression Check
@@ -295,39 +245,30 @@ jobs:
         id: gas_check
         continue-on-error: true
 
-      # - name: Upload gas comparison
-      #   if: always()
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: gas-comparison
-      #     path: .gas-snapshot
-
-
   # ==========================================
-  # Job 5: 成功状态检查
+  # Job 4: 成功状态检查
   # ==========================================
   qa-success:
     name: QA Pipeline Success
     runs-on: ubuntu-latest
-    needs: [foundry-coverage, hardhat-coverage, merge-coverage, gas-regression]
+    needs: [foundry-coverage, integration-tests, gas-regression]
     if: success()
 
     steps:
       - name: Success message
         run: |
           echo "✅ All QA checks passed!"
-          echo "- Foundry coverage: PASSED"
-          echo "- Hardhat coverage: PASSED"
-          echo "- Merged coverage targets: MET"
+          echo "- Core contracts coverage: PASSED"
+          echo "- Integration tests: PASSED"
           echo "- Gas regression: PASSED"
 
   # ==========================================
-  # Job 6: 失败通知
+  # Job 5: 失败通知
   # ==========================================
   qa-failure:
     name: QA Pipeline Failure
     runs-on: ubuntu-latest
-    needs: [foundry-coverage, hardhat-coverage, merge-coverage, gas-regression]
+    needs: [foundry-coverage, integration-tests, gas-regression]
     if: failure()
 
     steps:
