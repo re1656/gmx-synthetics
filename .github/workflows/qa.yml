@@ -199,35 +199,3 @@ jobs:
         id: gas_check
         continue-on-error: false
 
-  # ==========================================
-  # Job 4: 成功状态检查
-  # ==========================================
-  qa-success:
-    name: QA Pipeline Success
-    runs-on: ubuntu-latest
-    needs: [foundry-coverage, integration-tests, gas-regression]
-    if: success()
-
-    steps:
-      - name: Success message
-        run: |
-          echo "✅ All QA checks passed!"
-          echo "- Core contracts coverage: PASSED"
-          echo "- Integration tests: PASSED"
-          echo "- Gas regression: PASSED"
-
-  # ==========================================
-  # Job 5: 失败通知
-  # ==========================================
-  qa-failure:
-    name: QA Pipeline Failure
-    runs-on: ubuntu-latest
-    needs: [foundry-coverage, integration-tests, gas-regression]
-    if: failure()
-
-    steps:
-      - name: Failure message
-        run: |
-          echo "❌ QA checks failed!"
-          echo "Please review the failed jobs above."
-          exit 1
