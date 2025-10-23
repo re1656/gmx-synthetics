@@ -253,15 +253,77 @@ forge snapshot --match-path "test/forge/**/*.sol"
 
 ### 7.3 CI 集成
 
-`.github/workflows/qa.yml` 包含:
+本项目使用GitHub Actions进行持续集成，专注于核心合约的测试覆盖率和质量保证。
+
+#### CI 流水线概述
+
+CI流水线包含以下主要作业：
+
+1. **Foundry Coverage** - 核心合约的单元测试和模糊测试覆盖率
+2. **Integration Tests** - 集成测试验证
+3. **Gas Regression** - Gas回归检查
+
+#### 环境配置
+
+- **Docker容器**: 所有作业运行在 `node:20-bookworm` 容器中
+- **Node.js版本**: 20.x
+- **Yarn版本**: 4.3.0 (与Dockerfile保持一致)
+- **Foundry版本**: stable
+- **权限**: 支持PR评论和内容写入
+
+#### 覆盖率目标
+
+- **行覆盖率**: ≥85% (核心合约)
+- **分支覆盖率**: ≥80%  
+
+#### 触发条件
+
+- `push` 到 `main` 分支
+- `pull_request` 到 `main` 分支
+
+#### 关键配置
+
+**Foundry覆盖率生成**:
+```yaml
+- name: Run Foundry coverage
+  run: |
+    forge coverage \
+      --match-path "test/forge/**/*.sol" \
+      --ir-minimum \
+      --fuzz-runs 1000 \
+      --report lcov
+  env:
+    FOUNDRY_DISABLE_NIGHTLY_WARNING: true
+```
+
+**覆盖率阈值检查**:
+```yaml
+- name: Check coverage thresholds
+  run: node scripts/checkCoreCoverage.js
+  continue-on-error: false
+```
+
+**集成测试执行**:
+```yaml
+- name: Run Integration Tests
+  run: |
+    echo "Running integration tests..."
+    export NODE_OPTIONS="--max-old-space-size=8192"
+    npx hardhat test test/exchange/LiquidityMath.ts test/exchange/FundingAndPnL.ts
+  env:
+    NODE_OPTIONS: --max-old-space-size=8192
+    OPTIMIZER: "true"
+    VIA_IR: "false"
+```
+
+**Gas回归检查**:
 ```yaml
 - name: Gas regression check
   run: |
     if [ -f ".gas-snapshot" ]; then
       echo "Checking for gas regressions in source functions..."
       # 检查Gas回归 - 5%阈值 (只有增加超过5%才会失败)
-      forge snapshot --match-test "testSwap|testCreateDeposit|testCreateWithdrawal|testGetPriceImpact|testGetSwapFees" \
-        --via-ir --optimize false --check --tolerance 5
+      forge snapshot --match-test "testSwap|testCreateDeposit|testCreateWithdrawal|testGetPriceImpact|testGetSwapFees" --via-ir --optimize false --check --tolerance 5
       echo "✅ Gas regression check passed (tolerance: ±5%)"
     else
       echo "❌ No baseline gas snapshot found"
@@ -269,10 +331,27 @@ forge snapshot --match-path "test/forge/**/*.sol"
     fi
 ```
 
-**配置说明**:
+#### 配置说明
+
 - `--tolerance 5`: 容忍 ±5% 的 gas 偏差
 - 只有 gas 增加超过 5% 时才会失败
 - Gas 减少（优化）永远不会导致测试失败
+- `--ir-minimum`: 使用IR优化器最小化gas使用
+- `--fuzz-runs 1000`: 模糊测试运行1000次
+- `YARN_ENABLE_HARDENED_MODE: false`: 禁用Yarn PnP模式，使用node_modules
+
+#### 工件上传
+
+- **覆盖率报告**: `lcov.info` 和 `coverage-badge.json`
+- **测试结果**: 自动保存到GitHub Actions artifacts
+- **Gas快照**: `.gas-snapshot` 基线文件
+
+#### 故障排除
+
+1. **内存不足**: 设置 `NODE_OPTIONS=--max-old-space-size=8192`
+2. **Yarn PnP问题**: 强制使用node_modules模式
+3. **权限问题**: 确保GitHub Actions有PR评论权限
+4. **覆盖率阈值**: 检查 `scripts/checkCoreCoverage.js` 配置
 
 ---
 
@@ -321,13 +400,40 @@ genhtml lcov_merged.info --output-directory coverage_merged
 
 ## 9. 测试执行矩阵
 
-| 测试套件 | 命令 | 持续时间 | CI 触发器 |
-|---------|------|---------|---------|
-| Forge 单元测试 | `forge test -vvv` | ~15秒 | 每次提交 |
-| Forge 模糊测试 | `forge test --fuzz-runs 1000` | ~45秒 | 每次提交 |
-| Hardhat 集成测试 | `npx hardhat test` | ~3分钟 | 每次提交 |
-| 合并覆盖率 | `bash scripts/run_coverage_merge.sh` | ~8分钟 | 仅 PR |
-| Gas 快照 | `forge snapshot --check` | ~20秒 | 每次提交 |
+| 测试套件 | 命令 | 持续时间 | CI 触发器 | 作业名称 |
+|---------|------|---------|---------|---------|
+| Foundry 覆盖率测试 | `forge coverage --match-path "test/forge/**/*.sol" --ir-minimum --fuzz-runs 1000 --report lcov` | ~3分钟 | 每次提交 | foundry-coverage |
+| 覆盖率阈值检查 | `node scripts/checkCoreCoverage.js` | ~10秒 | 每次提交 | foundry-coverage |
+| 集成测试 (核心) | `npx hardhat test test/exchange/LiquidityMath.ts test/exchange/FundingAndPnL.ts` | ~4分钟 | 每次提交 | integration-tests |
+| Gas 回归检查 | `forge snapshot --match-test "testSwap\|testCreateDeposit\|testCreateWithdrawal\|testGetPriceImpact\|testGetSwapFees" --via-ir --optimize false --check --tolerance 5` | ~3m | 每次提交 | gas-regression |
+
+### CI 作业依赖关系
+
+```
+foundry-coverage (独立)
+    ↓
+gas-regression (依赖 foundry-coverage)
+integration-tests (独立)
+```
+
+### 环境配置
+
+| 配置项 | 值 | 说明 |
+|-------|---|------|
+| Docker 镜像 | `node:20-bookworm` | 所有作业使用相同容器 |
+| Node.js 版本 | 20.x | 与Dockerfile一致 |
+| Yarn 版本 | 4.3.0 | 使用corepack管理 |
+| Foundry 版本 | stable | 非nightly版本 |
+| 内存限制 | 8GB | `NODE_OPTIONS=--max-old-space-size=8192` |
+| Yarn 模式 | node_modules | `YARN_ENABLE_HARDENED_MODE=false` |
+
+### 工件输出
+
+| 作业 | 工件名称 | 文件路径 | 用途 |
+|-----|---------|---------|------|
+| foundry-coverage | foundry-coverage | `lcov.info`, `coverage-badge.json` | 覆盖率报告和徽章数据 |
+| integration-tests | 无 | 测试日志 | 仅验证测试通过 |
+| gas-regression | 无 | `.gas-snapshot` | Gas基线文件 |
 
 ---
 
