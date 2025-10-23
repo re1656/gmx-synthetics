@@ -4,3 +4,48 @@ out = 'out'
 libs = ['node_modules', 'lib']
 test = 'test'
 cache_path  = 'cache_forge'
+via_ir = true
+optimizer = true
+optimizer_runs = 200
+
+# CI profile - same as default for CI environment
+[profile.ci]
+src = 'contracts'
+out = 'out'
+libs = ['node_modules', 'lib']
+test = 'test'
+cache_path  = 'cache_forge'
+via_ir = true
+optimizer = true
+optimizer_runs = 200
+
+# Gas snapshot profile - use same settings as default for consistent gas measurement
+[profile.snapshot]
+src = 'contracts'
+out = 'out'
+libs = ['node_modules', 'lib']
+test = 'test'
+cache_path  = 'cache_forge'
+via_ir = true
+optimizer = true
+optimizer_runs = 200  # Same as default for consistent measurement
+
+# Fuzz testing configuration
+[fuzz]
+runs = 1000              # Number of fuzz runs per test (≥1000 as required)
+max_test_rejects = 65536 # Maximum number of times to reject a fuzz input
+
+[invariant]
+runs = 256               # Number of runs for invariant tests
+depth = 15               # Number of calls in a single run
+fail_on_revert = false   # Continue even if a call reverts
+# Coverage profile - optimized for coverage collection
+[profile.coverage]
+src = 'contracts'
+out = 'out'
+libs = ['node_modules', 'lib']
+test = 'test'
+cache_path  = 'cache_forge'
+via_ir = true
+optimizer = false  # Disable optimizer for better coverage
+optimizer_runs = 0

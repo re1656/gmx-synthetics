@@ -1,5 +1,11 @@
 # GMX Synthetics
 
+[![Coverage](https://img.shields.io/badge/coverage-90.1%25-green)](./coverage_merged/index.html)
+[![Lines](https://img.shields.io/badge/lines-273%2F303-green)](./coverage_merged/index.html)
+[![Branches](https://img.shields.io/badge/branches-28%2F42-yellow)](./coverage_merged/index.html)
+
+> **QA Branch**: `qa/severus.cui` - Comprehensive test coverage for swap & liquidity logic
+
 Contracts for GMX Synthetics.
 
 # General Overview

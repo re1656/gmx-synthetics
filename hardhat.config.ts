@@ -164,6 +164,8 @@ const getEnvAccounts = (chainName?: string) => {
   return [];
 };
 
+const ENABLE_OPTIMIZER = process.env.OPTIMIZER === "true";
+const ENABLE_VIA_IR = process.env.VIA_IR === "true";
 const config: HardhatUserConfig = {
   solidity: {
     compilers: [
@@ -171,12 +173,16 @@ const config: HardhatUserConfig = {
         version: "0.8.29",
         settings: {
           optimizer: {
-            enabled: true,
-            runs: 10,
+            // For coverage: enable optimizer to avoid stack too deep
+            // For regular tests: disable optimizer (user's fix for compilation)
+            enabled: ENABLE_OPTIMIZER,
+            runs: 200,
             details: {
               constantOptimizer: true,
             },
           },
+          // Disable viaIR for coverage tests (solidity-coverage doesn't support it)
+          viaIR: ENABLE_VIA_IR,
         },
       },
     ],

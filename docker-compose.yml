@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  gmx-dev:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/work
+      - /work/node_modules    # 让容器有独立 node_modules，不影响宿主机
+    working_dir: /work
+    command: bash
+    stdin_open: true
+    tty: true

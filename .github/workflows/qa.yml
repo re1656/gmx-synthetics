@@ -1,0 +1,201 @@
+name: QA | Core Contracts Coverage (≥85% Lines, ≥80% Branches)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  NODE_VERSION: '20.x'
+  FOUNDRY_PROFILE: ci
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  # ==========================================
+  # Job 1: Foundry Coverage (核心合约)
+  # ==========================================
+  foundry-coverage:
+    name: Foundry Coverage (Core Contracts)
+    runs-on: ubuntu-latest
+
+    container:
+      image: node:20-bookworm
+      options: --user root
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          apt-get update && apt-get install -y git python3 make g++ curl
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Setup yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@4.3.0 --activate
+
+      - name: Install dependencies
+        env:
+            YARN_ENABLE_HARDENED_MODE: false
+        run: |
+          # Force node_modules mode
+          rm -rf node_modules .yarn/cache .yarn/unplugged
+          yarn config set nodeLinker node-modules
+          yarn install --immutable
+          # Fallback to npm if node_modules not created
+          if [ ! -d "node_modules" ]; then
+            npm install
+          fi
+
+      - name: Run Foundry coverage
+        run: |
+          forge coverage \
+            --match-path "test/forge/**/*.sol" \
+            --ir-minimum \
+            --fuzz-runs 1000 \
+            --report lcov
+        env:
+          FOUNDRY_DISABLE_NIGHTLY_WARNING: true
+
+      - name: Check coverage thresholds
+        run: node scripts/checkCoreCoverage.js
+        continue-on-error: false
+
+      - name: Generate coverage badge data
+        if: always()
+        run: node scripts/generateCoverageBadge.js
+        continue-on-error: true
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: foundry-coverage
+          path: |
+            lcov.info
+            coverage-badge.json
+
+  # ==========================================
+  # Job 2: Integration Tests (Test Only)
+  # ==========================================
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+
+    container:
+      image: node:20-bookworm
+      options: --user root
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          apt-get update && apt-get install -y git python3 make g++ curl
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Setup yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@4.3.0 --activate
+
+      - name: Install dependencies
+        env:
+            YARN_ENABLE_HARDENED_MODE: false
+        run: |
+          # Force node_modules mode
+          rm -rf node_modules .yarn/cache .yarn/unplugged
+          yarn config set nodeLinker node-modules
+          yarn install --immutable
+          # Fallback to npm if node_modules not created
+          if [ ! -d "node_modules" ]; then
+            npm install
+          fi
+
+      - name: Run Integration Tests
+        run: |
+          echo "Running integration tests..."
+          export NODE_OPTIONS="--max-old-space-size=8192"
+          npx hardhat test test/exchange/LiquidityMath.ts test/exchange/FundingAndPnL.ts
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+          OPTIMIZER: "true"
+          VIA_IR: "false"
+
+  # ==========================================
+  # Job 3: Gas回归测试
+  # ==========================================
+  gas-regression:
+    name: Gas Regression Check
+    runs-on: ubuntu-latest
+    needs: [foundry-coverage]
+    if: always()
+
+    container:
+      image: node:20-bookworm
+      options: --user root
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          apt-get update && apt-get install -y git python3 make g++ curl
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Setup yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@4.3.0 --activate
+
+      - name: Install dependencies
+        env:
+            YARN_ENABLE_HARDENED_MODE: false
+        run: |
+          # Force node_modules mode
+          rm -rf node_modules .yarn/cache .yarn/unplugged
+          yarn config set nodeLinker node-modules
+          yarn install --immutable
+          # Fallback to npm if node_modules not created
+          if [ ! -d "node_modules" ]; then
+            npm install
+          fi
+
+      - name: Gas regression check
+        run: |
+          if [ -f ".gas-snapshot" ]; then
+            echo "Checking for gas regressions in source functions..."
+            # 检查Gas回归 - 5%阈值 (只有增加超过5%才会失败)
+            forge snapshot --match-test "testSwap|testCreateDeposit|testCreateWithdrawal|testGetPriceImpact|testGetSwapFees" --via-ir --optimize false --check --tolerance 5
+            echo "✅ Gas regression check passed (tolerance: ±5%)"
+          else
+            echo "❌ No baseline gas snapshot found"
+            exit 1
+          fi
+        id: gas_check
+        continue-on-error: false
+
